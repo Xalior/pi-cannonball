@@ -1,0 +1,9 @@
+[submodule "cannonball"]
+	path = cannonball
+	url = https://github.com/djyt/cannonball.git
+[submodule "circle-libsdl2"]
+	path = circle-libsdl2
+	url = https://github.com/Xalior/circle-libsdl2.git
+[submodule "boost"]
+	path = boost
+	url = https://github.com/boostorg/boost.git
