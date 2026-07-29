@@ -171,6 +171,16 @@ grep -q '<rate>44100</rate>' "$CACHE/card-config.xml" \
 
 # --- write the card ---------------------------------------------------------
 
+# How to copy onto the card. macOS cp carries extended attributes across, which
+# on FAT become clutter the Pi firmware has to wade through, so -X suppresses
+# them there. GNU cp has neither the flag nor the problem and rejects -X
+# outright, which is why this is not a constant. Written as an if rather than a
+# && so a non-macOS host does not end on a false test under `set -e`.
+CP=(cp)
+if [[ $OSTYPE == darwin* ]]; then
+    CP+=(-X)
+fi
+
 print "  WIPE  $CARD"
 find "$CARD" -mindepth 1 -maxdepth 1 \
     ! -name '.fseventsd' ! -name '.Spotlight-V100' ! -name '.Trashes' \
@@ -181,19 +191,19 @@ for name in ${(k)WANT}; do
     case $name in
     esac
     mkdir -p "$CARD/${name:h}"
-    cp -X "$FW/$name" "$CARD/$name"
+    "${CP[@]}" "$FW/$name" "$CARD/$name"
 done
 for name src in "${(@kv)SLOTS}"; do
-    cp -X "$src" "$CARD/$name"
+    "${CP[@]}" "$src" "$CARD/$name"
 done
-cp -X "$ROOT/host/config.txt" "$ROOT/host/cmdline.txt" "$CARD/"
-cp -X "$CACHE/card-config.xml" "$CARD/config.xml"
+"${CP[@]}" "$ROOT/host/config.txt" "$ROOT/host/cmdline.txt" "$CARD/"
+"${CP[@]}" "$CACHE/card-config.xml" "$CARD/config.xml"
 
 mkdir -p "$CARD/roms" "$CARD/res"
-cp -X "$ROOT/cannonball/res/tilemap.bin" "$ROOT/cannonball/res/tilepatch.bin" \
+"${CP[@]}" "$ROOT/cannonball/res/tilemap.bin" "$ROOT/cannonball/res/tilepatch.bin" \
       "$ROOT/cannonball/res/gamecontrollerdb.txt" "$CARD/res/"
 
-# macOS sprays AppleDouble ._* files onto FAT regardless of cp -X.
+# macOS sprays AppleDouble ._* files onto FAT regardless of the copy flags.
 dot_clean -m "$CARD" 2>/dev/null || true
 find "$CARD" -name '._*' -delete
 
