@@ -169,10 +169,11 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
+      # zsh because the card builder is written in it, and a runner has none.
       - name: Install prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends make wget python3 zip
+          sudo apt-get install -y --no-install-recommends make wget python3 zip zsh
 
       - name: Cache Arm toolchain
         uses: actions/cache@v4
