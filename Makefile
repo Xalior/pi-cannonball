@@ -66,7 +66,11 @@ deps: boost
 # built from, which is gigabytes, so a machine with a small disk — a CI
 # runner, most obviously — builds one board at a time and keeps only that
 # board's world.
-deps-%: boost
+# Written as a static pattern rule over the board list rather than a plain
+# pattern rule: these targets are phony, and make does not apply pattern rules
+# to phony targets — it would quietly answer "nothing to be done" and leave
+# the world unbuilt.
+$(addprefix deps-,$(BOARDS)): deps-%: boost
 	$(MAKE) -C circle-libsdl2 world BOARD=$*
 	$(MAKE) -C circle-libsdl2 libSDL2-$*.a BOARD=$*
 
