@@ -226,9 +226,13 @@ jobs:
           path: build/sd-card/
           if-no-files-found: error
 
-  # Attach what was built to the release the tag names. The notes are not
-  # written here: publishing is a person's decision taken after reading the
-  # page, so the release is left as a draft.
+  # The release IS the card. What a stranger downloads is the thing they write
+  # to an SD card and boot — everything except the ROM set, which is not ours
+  # to ship. The board images remain workflow artifacts for debugging and are
+  # deliberately not release assets: a release is a product, not a build tree.
+  #
+  # The notes are not written here: publishing is a person's decision taken
+  # after reading the page, so the release is left as a draft.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [build, card]
@@ -236,21 +240,21 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Gather every artifact
+      - name: Fetch the card
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: sd-card
+          path: sd-card
 
-      - name: Package them
+      - name: Package it
         run: |
-          cd artifacts
-          for d in */; do (cd "$d" && zip -qr "../${d%/}.zip" .); done
+          (cd sd-card && zip -qr "../pi-cannonball-${GITHUB_REF_NAME}-sdcard.zip" .)
           ls -l ./*.zip
 
       - name: Attach to the release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          files: pi-cannonball-${{ github.ref_name }}-sdcard.zip
           fail_on_unmatched_files: true
           generate_release_notes: false
           draft: true
