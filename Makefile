@@ -6,6 +6,8 @@
 #   make deps                boost, then the three circle-stdlib worlds and
 #                            the shim archives built against them (long: the
 #                            worlds build newlib and libc++ from source)
+#   make deps-rpi4           the same for one board only, for a machine that
+#                            cannot hold three worlds at once
 #   make rpi5 | rpi4 | rpi3  one board's kernel image
 #   make kernels             all three, built in parallel
 #   make verify              truth-gate: every image exists and is non-empty
@@ -46,6 +48,7 @@ BOOST_LIBS = \
 	throw_exception tuple type_index type_traits utility
 
 .PHONY: boost deps kernels verify netboot card clean-boards $(BOARDS)
+.PHONY: $(addprefix deps-,$(BOARDS))
 
 boost:
 	@for lib in $(BOOST_LIBS); do \
@@ -57,6 +60,15 @@ boost:
 
 deps: boost
 	$(MAKE) -C circle-libsdl2 deps
+
+# One board's dependencies: its own circle-stdlib world and the shim archive
+# built against it. Each world clones its own copy of the LLVM tree libc++ is
+# built from, which is gigabytes, so a machine with a small disk — a CI
+# runner, most obviously — builds one board at a time and keeps only that
+# board's world.
+deps-%: boost
+	$(MAKE) -C circle-libsdl2 world BOARD=$*
+	$(MAKE) -C circle-libsdl2 libSDL2-$*.a BOARD=$*
 
 $(BOARDS): check-toolchain
 	$(MAKE) -C host RAPI_BOARD=$@

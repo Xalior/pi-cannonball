@@ -1,0 +1,249 @@
+# pi-cannonball CI — the stranger test.
+#
+# Everything here is built from the published sources alone, on a machine that
+# has never seen this project: clone, toolchain, dependencies, kernels, card.
+# If a stranger cannot do it, this goes red before anyone ships.
+#
+# The trigger is narrow on purpose. A cold dependency build compiles newlib and
+# libc++ from source and clones a multi-gigabyte LLVM tree, so it is not
+# something to run on every push:
+#
+#   - a version tag (v*) whose commit is on main — a release being cut;
+#   - any push to the `ci` branch, for when you want the signal without a tag.
+#
+# A tag is not branch-scoped in git, so a v-tag pointing anywhere else builds
+# nothing and says why.
+#
+# ROMs are never fetched here. The card this builds is complete except for the
+# OutRun ROM set, which is not this project's to distribute.
+
+name: build
+
+on:
+  push:
+    tags: ['v*']
+    branches: ['ci']
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  # Pinned to the release the project builds with. The directory name doubles
+  # as the cache key.
+  ARM_RELEASE: arm-gnu-toolchain-15.2.rel1-x86_64-aarch64-none-elf
+  ARM_URL: https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/arm-gnu-toolchain-15.2.rel1-x86_64-aarch64-none-elf.tar.xz
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    # ONE JOB PER BOARD. Each board has its own circle-stdlib world, compiled
+    # for its own processor, and each world clones its own copy of the LLVM
+    # tree — gigabytes apiece, more than a runner's disk holds three of. So a
+    # runner builds one board and keeps only that board's world.
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [rpi3, rpi4, rpi5]
+
+    steps:
+      - name: Checkout (recursive, shallow submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      # The runner ships ~25GB of toolchains this build never touches, on the
+      # filesystem that holds the workspace. The LLVM checkout alone is around
+      # 3GB, so reclaim first and fail on a full disk rather than at 90%.
+      - name: Reclaim disk
+        run: |
+          echo "before:"; df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          echo "after:";  df -h / | tail -1
+
+      # A tag is not branch-scoped: a v-tag on any commit fires this workflow.
+      # Only tags pointing into main's history build.
+      - name: Require the tagged commit to be on main
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          git fetch --unshallow origin +refs/heads/main:refs/remotes/origin/main \
+            || git fetch origin +refs/heads/main:refs/remotes/origin/main
+          if git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "tag $GITHUB_REF_NAME is on main — building"
+          else
+            echo "tag $GITHUB_REF_NAME is not on main — side-branch tags build nothing"
+            exit 1
+          fi
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential make wget python3 zip
+
+      # Keyed on the release name: a hit skips the download and unpack.
+      - name: Cache Arm toolchain
+        id: cache-toolchain
+        uses: actions/cache@v4
+        with:
+          path: toolchain
+          key: ${{ env.ARM_RELEASE }}
+
+      - name: Fetch Arm toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p toolchain
+          wget -q -O arm.tar.xz "$ARM_URL"
+          tar -xf arm.tar.xz -C toolchain --strip-components=1
+          rm -f arm.tar.xz
+
+      # The build looks on PATH first, so this is all the wiring it needs.
+      - name: Put the toolchain on PATH
+        run: echo "$GITHUB_WORKSPACE/toolchain/bin" >> "$GITHUB_PATH"
+
+      # What identifies this board's world: the shim's pin, because the world
+      # is a submodule inside it, and the recipe that builds it.
+      - name: Resolve cache key
+        id: keys
+        run: |
+          echo "sdl2=$(git -C circle-libsdl2 rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "recipe=$(sha256sum circle-libsdl2/Makefile | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      # The expensive thing, and the reason the trigger is narrow: newlib and
+      # libc++ compiled from source. The LLVM checkout itself is deliberately
+      # NOT cached — it is gigabytes of source that has already done its job
+      # once the world is built, and it would crowd out the world it produced.
+      - name: Cache this board's world
+        id: cache-world
+        uses: actions/cache@v4
+        with:
+          path: |
+            circle-libsdl2/circle-stdlib-${{ matrix.board }}/install
+            circle-libsdl2/circle-stdlib-${{ matrix.board }}/Config.mk
+            circle-libsdl2/libSDL2-${{ matrix.board }}.a
+            boost
+          key: world-${{ matrix.board }}-${{ steps.keys.outputs.sdl2 }}-${{ steps.keys.outputs.recipe }}
+
+      - name: Build this board's dependencies
+        if: steps.cache-world.outputs.cache-hit != 'true'
+        run: make deps-${{ matrix.board }}
+
+      # Reclaim the LLVM checkout: libc++ is built and installed by now, and
+      # the source is the largest thing on the disk.
+      - name: Drop the LLVM checkout
+        run: rm -rf circle-libsdl2/circle-stdlib-${{ matrix.board }}/libs/llvm-project
+
+      - name: Build this board's kernel
+        run: make ${{ matrix.board }}
+
+      # Truth gate: ask the filesystem. An image that is missing or empty fails
+      # here even when the build claimed success.
+      - name: Verify the image
+        run: make verify BOARDS=${{ matrix.board }}
+
+      - name: Upload this board's image
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-${{ matrix.board }}
+          path: host/build/${{ matrix.board }}/
+          if-no-files-found: error
+
+  # The card is board-independent — it carries all three kernels — so it is
+  # assembled once, from the images the three build jobs produced.
+  card:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout (recursive, shallow submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends make wget python3 zip
+
+      - name: Cache Arm toolchain
+        uses: actions/cache@v4
+        with:
+          path: toolchain
+          key: ${{ env.ARM_RELEASE }}
+
+      - name: Fetch Arm toolchain
+        run: |
+          if [ ! -x toolchain/bin/aarch64-none-elf-gcc ]; then
+            mkdir -p toolchain
+            wget -q -O arm.tar.xz "$ARM_URL"
+            tar -xf arm.tar.xz -C toolchain --strip-components=1
+            rm -f arm.tar.xz
+          fi
+          echo "$GITHUB_WORKSPACE/toolchain/bin" >> "$GITHUB_PATH"
+
+      # The images the build jobs made, back into the tree where the card
+      # builder expects to find them.
+      - name: Gather the board images
+        uses: actions/download-artifact@v4
+        with:
+          pattern: kernel-*
+          path: artifacts
+
+      - name: Place the images
+        run: |
+          for b in rpi3 rpi4 rpi5; do
+            mkdir -p "host/build/$b"
+            cp -r "artifacts/kernel-$b/." "host/build/$b/"
+          done
+          ls -l host/build/*/
+
+      # The card without the ROMs: firmware, kernels, boot configuration, the
+      # game's resources and its config.xml. mkcard downloads the firmware and
+      # builds the Pi 4 boot stub, both hash-checked against its manifest.
+      - name: Build the card
+        run: tools/mkcard --stage build/sd-card
+
+      - name: Upload the card
+        uses: actions/upload-artifact@v4
+        with:
+          name: sd-card
+          path: build/sd-card/
+          if-no-files-found: error
+
+  # Attach what was built to the release the tag names. The notes are not
+  # written here: publishing is a person's decision taken after reading the
+  # page, so the release is left as a draft.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, card]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Gather every artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Package them
+        run: |
+          cd artifacts
+          for d in */; do (cd "$d" && zip -qr "../${d%/}.zip" .); done
+          ls -l ./*.zip
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: false
+          draft: true
