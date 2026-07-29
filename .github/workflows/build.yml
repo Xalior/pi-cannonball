@@ -118,16 +118,22 @@ jobs:
           echo "recipe=$(sha256sum circle-libsdl2/Makefile | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       # The expensive thing, and the reason the trigger is narrow: newlib and
-      # libc++ compiled from source. The LLVM checkout itself is deliberately
-      # NOT cached — it is gigabytes of source that has already done its job
-      # once the world is built, and it would crowd out the world it produced.
+      # libc++ compiled from source.
+      #
+      # The WHOLE world is cached, minus the LLVM source — that is gigabytes
+      # which has done its job once libc++ is installed, and caching it would
+      # crowd out the world it produced. Everything else has to travel
+      # together: configure writes a settings file for circle-stdlib AND
+      # another for Circle itself, and a build that finds only the first one
+      # falls back to the 32-bit toolchain and looks for a compiler nobody
+      # installed. Without the LLVM tree a world is around 600 MB.
       - name: Cache this board's world
         id: cache-world
         uses: actions/cache@v4
         with:
           path: |
-            circle-libsdl2/circle-stdlib-${{ matrix.board }}/install
-            circle-libsdl2/circle-stdlib-${{ matrix.board }}/Config.mk
+            circle-libsdl2/circle-stdlib-${{ matrix.board }}
+            !circle-libsdl2/circle-stdlib-${{ matrix.board }}/libs/llvm-project
             circle-libsdl2/libSDL2-${{ matrix.board }}.a
             boost
           key: world-${{ matrix.board }}-${{ steps.keys.outputs.sdl2 }}-${{ steps.keys.outputs.recipe }}
