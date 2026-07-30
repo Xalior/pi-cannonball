@@ -61,14 +61,26 @@ max_framebuffers=2
 
 [pi5]
 kernel=kernel_2712.img
-# The Pi 5 firmware ignores mailbox framebuffer requests: mode, depth and
-# virtual size are echoed back but not honored, so every kernel inherits the
-# one surface the firmware created at its own boot — in the native EDID mode,
-# and 16 bits per pixel by default. Depth is the one part of that the
-# firmware still lets boot configuration set, and it must be set: everything
-# circle-libsdl2 renders is 32-bit pixels, so on a 16bpp surface the picture
-# is wrong. Pi 3 and Pi 4 honor the mailbox and are unaffected by these two
-# lines.
+# Nothing here sets the Pi 5's resolution, because nothing can. Forcing 720p
+# with every lever the firmware offers — hdmi_force_hotplug, hdmi_group=1,
+# hdmi_mode=4, framebuffer_width and framebuffer_height, and Circle's own
+# width= and height= alongside them — left the board still emitting 1080p.
+# It also grants a kernel only the rows the mode it already chose has,
+# whatever virtual size the mailbox asks for, which is why the shim keeps a
+# single-surface present path for this board.
+#
+# Nor is the mode simply the panel's own. On the bench a Pi 5 drove 1080p
+# into a capture dongle and into a television, and produced no picture at all
+# on a 1024x768 panel and an 800x480 one that a Pi 3 and a Pi 4 both lit from
+# this same card. A card carrying that forced-720p configuration did get a
+# picture onto those two — a stretched 1080p — so the board can be made to
+# drive them, badly; which of the levers did it was not isolated.
+#
+# Depth is set because everything circle-libsdl2 renders is 32-bit pixels and
+# the Pi 5 build is compiled to match. The board has only ever been run with
+# this line present, so what the firmware would settle on without it is
+# untested. Pi 3 and Pi 4 take their surface from the mailbox and are
+# unaffected by both lines.
 framebuffer_depth=32
 framebuffer_ignore_alpha=1
 

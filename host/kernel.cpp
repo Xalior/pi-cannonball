@@ -213,9 +213,12 @@ TShutdownMode CKernel::Run(void)
 
     // Geometry evidence belongs on serial: what boot config handed us, read
     // next to the shim's framebuffer-grant line when the window is created.
-    // On Pi 3/4 the firmware honors this request and outputs it as the video
-    // signal; on Pi 5 the firmware ignores mode requests and every kernel
-    // inherits the one surface the firmware made at its own boot.
+    // The card asks for no size, so this prints 0x0 and the shim takes its
+    // canvas from whatever the firmware is already scanning out. A width= and
+    // height= in cmdline.txt would change that on a Pi 3 or a Pi 4, which do
+    // honor a mailbox mode request; on a Pi 5 it changes nothing, because no
+    // request of any kind moves that board off the mode its firmware settled
+    // on before our kernel ran.
     m_Logger.Write(From, LogNotice, "boot config geometry: %ux%u",
                    m_Options.GetWidth(), m_Options.GetHeight());
 
