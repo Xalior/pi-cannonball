@@ -126,7 +126,15 @@ BOOST_INCLUDES = $(addprefix -I ,$(wildcard $(BOOST)/libs/*/include))
 INCLUDE := -I $(SHIM)/include -I $(SHIM)/include/SDL2 -I $(CANNONBALL) \
 	$(BOOST_INCLUDES) $(CIRCLE_STDLIB_INCLUDES) $(INCLUDE)
 
-LIBS = $(SHIM)/libSDL2-$(RAPI_BOARD).a $(CIRCLE_STDLIB_LIBS)
+# The shim comes in whole, every member, rather than only the members the
+# link happens to need. An object file linked straight into the kernel beats
+# an archive member of the same name and does it silently, so a stub in
+# circle_stubs.cpp left behind after the library implemented the real thing
+# would quietly win — the game would keep calling the stub and nothing would
+# say so. Pulling the archive in whole turns that into a duplicate-symbol
+# error at link time, which is the only moment it can still be cheap to fix.
+LIBS = --whole-archive $(SHIM)/libSDL2-$(RAPI_BOARD).a --no-whole-archive \
+	$(CIRCLE_STDLIB_LIBS)
 
 # ---------------------------------------------------------------------------
 # Filesystem syscalls, redirected at link time
