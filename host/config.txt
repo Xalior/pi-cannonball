@@ -61,9 +61,8 @@ max_framebuffers=2
 
 [pi5]
 kernel=kernel_2712.img
-# No resolution here: the Pi 5 firmware picks a mode before our kernel runs
-# and nothing in this file moves it. Depth, because everything the shim
-# renders is 32-bit pixels.
+# The Pi 5 hands our kernel a surface it already made, so no mode is named
+# here and the depth is asked for at boot. Other boards request both.
 framebuffer_depth=32
 framebuffer_ignore_alpha=1
 
