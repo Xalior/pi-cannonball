@@ -2,21 +2,18 @@
 // circle_stubs.cpp — the SDL2 entry points Cannonball references that
 // circle-libsdl2 does not implement yet.
 //
-// Every function here fails honestly rather than pretending to work: device
-// enumerations report nothing, opens return null, queries return an error
-// code. That is what keeps them unreachable at runtime. Cannonball guards
-// its whole joystick, game-controller and force-feedback path behind
-// SDL_NumJoysticks() > pad_id (src/main/sdl2/input.cpp), so a joystick
-// count of zero disables the family cleanly, and its WAV music loader
-// treats a failed load as "no custom music" and plays the emulated
-// soundtrack instead.
+// Every function here fails honestly rather than pretending to work: opens
+// return null, queries return an error code. That is what keeps them
+// unreachable at runtime. Cannonball's force-feedback calls are guarded by
+// the haptic handle being null, and its WAV music loader treats a failed
+// load as "no custom music" and plays the emulated soundtrack instead.
 //
-// These are seams, not permanent furniture. circle-libsdl2 is growing real
-// game-controller and mouse support, and this port is the program that will
-// exercise it: when the shim implements one of these for real, the way to
-// adopt it is to DELETE the stub here. An object file linked directly into
-// the kernel beats an archive member, so a stub left behind would silently
-// win over the working implementation.
+// These are seams, not permanent furniture: when the shim implements one of
+// these for real, the way to adopt it is to DELETE the stub here. An object
+// file linked directly into the kernel beats an archive member, so a stub
+// left behind would silently win over the working implementation — which is
+// exactly what the joystick and game-controller stubs did until the shim
+// grew them and they were removed.
 //
 #include <cstdarg>
 #include <cstdio>
@@ -26,25 +23,12 @@
 
 extern "C" {
 
-// ---- joystick ---------------------------------------------------------------
-
-int SDL_NumJoysticks(void) { return 0; }
-SDL_Joystick *SDL_JoystickOpen(int) { return nullptr; }
-void SDL_JoystickClose(SDL_Joystick *) {}
-
-// ---- game controller --------------------------------------------------------
-
-SDL_bool SDL_IsGameController(int) { return SDL_FALSE; }
-SDL_GameController *SDL_GameControllerOpen(int) { return nullptr; }
-void SDL_GameControllerClose(SDL_GameController *) {}
-
-// Cannonball loads res/gamecontrollerdb.txt at startup and only reports the
-// failure. It calls SDL_GameControllerAddMappingsFromFile, which is a macro
-// over this function and SDL_RWFromFile, so this is the name that has to
-// exist. -1 is the "no mappings added" answer.
-int SDL_GameControllerAddMappingsFromRW(SDL_RWops *, int) { return -1; }
-
 // ---- force feedback ---------------------------------------------------------
+//
+// Circle offers only a coarse off/weak/strong rumble, which cannot carry an
+// SDL haptic effect, so this family stays unimplemented rather than
+// pretending. Pads that can rumble are reachable through
+// SDL_JoystickRumble instead.
 
 SDL_Haptic *SDL_HapticOpen(int) { return nullptr; }
 void SDL_HapticClose(SDL_Haptic *) {}
@@ -56,9 +40,9 @@ int SDL_HapticRumbleStop(SDL_Haptic *) { return -1; }
 // ---- WAV loading and audio conversion ---------------------------------------
 //
 // Used only for user-supplied WAV music files. The emulated soundtrack
-// (YM2151 plus PCM samples) does not pass through any of this.
-
-SDL_RWops *SDL_RWFromFile(const char *, const char *) { return nullptr; }
+// (YM2151 plus PCM samples) does not pass through any of this. Opening the
+// file works — the shim implements SDL_RWFromFile, which the controller
+// database also needs — it is only the decoding that is absent.
 
 SDL_AudioSpec *SDL_LoadWAV_RW(SDL_RWops *, int, SDL_AudioSpec *, Uint8 **,
                               Uint32 *)
