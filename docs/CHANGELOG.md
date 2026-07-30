@@ -4,7 +4,64 @@ Each version is a proof of concept against an agreed spec. Commit references
 name the repository they live in: `pi-cannonball` for the product, and
 `circle-libsdl2` for the SDL2 implementation it is built on.
 
-## vPoC2 — unreleased
+## vPoC3 — unreleased
+
+The game is given a display of its own, and the picture costs half of what
+it did.
+
+### The game is told what display it has, and it is not the panel
+
+The kernel states the display the game runs on — 796x448, OutRun's
+widescreen raster at the doubled internal resolution — and every answer SDL
+gives the game reports that, whatever the screen is really showing. The game
+draws at its own size, and the SDL layer carries the finished frame to the
+panel in one pass on the presentation core.
+
+This is what a Pi 5 needs. That board's firmware settles its display mode
+before any kernel runs and cannot be moved off it, so a game that sizes
+itself from the screen is at the mercy of whatever monitor is plugged in.
+Now it is not: the same build fills a 1080p television and a 4K one
+identically, and the game's own copy of the frame is unscaled on every
+board.
+
+`pi-cannonball` 2fdb8f9 · `circle-libsdl2` b2eca5c, 6741ffe, 1c83bcf
+
+### The picture costs half the work it used to
+
+The SDL layer's scaler had an optimisation that read finished rows back out
+of the screen buffer instead of building them again from the source. Reading
+the wide side back costs more than recomputing it from the narrow one, and
+it evicted the source from cache while it did so.
+
+Removing it halved what the presentation core spends putting a frame on a
+1080p screen. The frame rate was already at its ceiling, so this shows as
+headroom rather than speed — but it is headroom on the core that would pay
+for anything added to the picture later.
+
+`circle-libsdl2` b16ac3e
+
+### Hi-res rendering and the repaired sound samples are on
+
+A fresh card asks for the doubled internal resolution, which is what makes
+the game's frame land on the declared display without being resized, and for
+the repaired PCM sample ROM in place of the corrupt one the original arcade
+board shipped with. Supply a ROM set containing it and the samples play as
+they were meant to; the game finds it by checksum, so its filename does not
+matter.
+
+`pi-cannonball` 545d8a5
+
+### Building the card is one command
+
+`make card` stages the whole card into `build/sd-card/`, or writes straight
+to a mounted volume. It fetches the firmware at the revision the kernel is
+built against and checks every file against a hash, so the same repository
+state always produces the same card. The README described copying files by
+hand and named neither.
+
+`pi-cannonball` 9a0e036, ef7da49
+
+## vPoC2 — 2026-07-30
 
 Joypad control and full-screen output on every board.
 
