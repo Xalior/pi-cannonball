@@ -246,9 +246,17 @@ jobs:
           name: sd-card
           path: sd-card
 
+      # mkcard leaves an empty roms/ for the ROM set to go in, and an empty
+      # directory does not survive the artifact round trip — so it is made
+      # again here. Without it the game has nowhere to look and the person
+      # writing the card gets no hint that anything is missing. The zip is
+      # then asked whether it really carries it, rather than assumed to.
       - name: Package it
         run: |
+          mkdir -p sd-card/roms
           (cd sd-card && zip -qr "../pi-cannonball-${GITHUB_REF_NAME}-sdcard.zip" .)
+          unzip -l "pi-cannonball-${GITHUB_REF_NAME}-sdcard.zip" | grep -q ' roms/$' \
+            || { echo "roms/ is missing from the card zip"; exit 1; }
           ls -l ./*.zip
 
       - name: Attach to the release
