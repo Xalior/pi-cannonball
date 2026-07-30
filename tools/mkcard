@@ -47,8 +47,7 @@ CARD=${argv_paths[1]:-/Volumes/PI-OUTRUN}
 CACHE=$ROOT/scratchpad
 FW=$CACHE/firmware
 
-# Pinned inputs: firmware revision from Circle's boot/Makefile, ROM zip from
-# the MAME 0.221 merged set on archive.org (torrentzipped, so byte-stable).
+# Pinned input: the firmware revision Circle's boot/Makefile builds against.
 FIRMWARE_REV=0641c5bf25d185d5bf25d8dcafd1da6dc8fdbf68
 FIRMWARE_URL=https://github.com/raspberrypi/firmware/raw/$FIRMWARE_REV/boot
 
