@@ -86,9 +86,15 @@ and the board cools itself by slowing down.
 
 ## What works
 
-Fullscreen software rendering at 60fps, HDMI audio, and USB keyboards, on all
-three boards. The picture is scaled to the display by the SDL layer, so the
-game runs at its own native resolution regardless of what the screen is.
+Fullscreen software rendering at 60fps, HDMI audio, USB keyboards, and USB
+pads, wheels and game controllers, on all three boards. The picture is scaled
+to the display by the SDL layer, so the game runs at its own native resolution
+regardless of what the screen is.
+
+Controllers are picked up as they are plugged in and released as they are
+pulled out, while the game is running. The card carries an unmodified
+`gamecontrollerdb.txt`, so a device that database recognises is mapped for
+you; one it has never heard of still works as a plain joystick.
 
 There is no GPU driver on bare metal, so everything is drawn by the processor.
 That is the design rather than a limitation: it is what makes one build run
