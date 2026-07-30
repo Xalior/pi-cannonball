@@ -14,9 +14,10 @@
 #     them, run `make kernels` first;
 #   - config.txt and cmdline.txt from host/;
 #   - res/ binaries (widescreen tilemaps, controller db) from cannonball/res/;
-#   - /config.xml from cannonball/res/config.xml with exactly two edits:
-#     video mode 0->1 (fullscreen; windowed is meaningless on bare metal)
-#     and sound rate 48000->44100 (the rate the shim is proven at).
+#   - /config.xml from cannonball/res/config.xml with the edits a bare-metal
+#     card needs: video mode 0->1 (fullscreen; windowed is meaningless here),
+#     sound rate 48000->44100 (the rate the shim is proven at), hi-res
+#     internal rendering on, and the repaired PCM sample ROM.
 #
 # Downloads are cached in the repo scratchpad/ and only fetched when absent
 # or hash-stale. Bounded and never silent: ends with CARD-READY or dies
@@ -162,11 +163,17 @@ fi
 
 sed -e 's|<mode>0</mode>|<mode>1</mode>|' \
     -e 's|<rate>48000</rate>|<rate>44100</rate>|' \
+    -e 's|<hires>0</hires>|<hires>1</hires>|' \
+    -e 's|<fix_samples>0</fix_samples>|<fix_samples>1</fix_samples>|' \
     "$ROOT/cannonball/res/config.xml" > "$CACHE/card-config.xml"
 grep -q '<mode>1</mode>' "$CACHE/card-config.xml" \
     || die "upstream config.xml drifted — video mode edit did not apply"
 grep -q '<rate>44100</rate>' "$CACHE/card-config.xml" \
     || die "upstream config.xml drifted — sound rate edit did not apply"
+grep -q '<hires>1</hires>' "$CACHE/card-config.xml" \
+    || die "upstream config.xml drifted — hi-res edit did not apply"
+grep -q '<fix_samples>1</fix_samples>' "$CACHE/card-config.xml" \
+    || die "upstream config.xml drifted — fixed samples edit did not apply"
 
 # --- write the card ---------------------------------------------------------
 
