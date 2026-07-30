@@ -257,10 +257,11 @@ TShutdownMode CKernel::Run(void)
                        "serial key injection armed (--rapi-debug-uart)");
     }
 
-    // Performance receipts are the library's own feature now: cmdline.txt
-    // `rapi-perf=N` arms one serial line every N seconds (frame rate, then
-    // the cycle split), read by the shim inside SDL_Init. Nothing to wire
-    // here; bench and product cards share one kernel either way.
+    // Performance receipts — one serial line every N seconds, frame rate
+    // then the cycle split — come from the library. Nothing to wire here:
+    // the defaults block's `--rapi-perf=N` was consumed above, which is
+    // where SDL2Circle_SetPerfInterval gets called (see defaults.cpp), so
+    // bench and product cards share one kernel either way.
 
     int res;
     if (m_bSplit)
