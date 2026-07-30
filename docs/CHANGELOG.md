@@ -6,58 +6,69 @@ name the repository they live in: `pi-cannonball` for the product, and
 
 ## vPoC3 — unreleased
 
-The game is given a display of its own, and the picture costs half of what
-it did.
+Cannonball is given a display size of its own, and drawing the picture takes
+about half the processor time it did.
 
-### The game is told what display it has, and it is not the panel
+### Cannonball is told its display size, and it is not the screen's
 
-The kernel states the display the game runs on — 796x448, OutRun's
-widescreen raster at the doubled internal resolution — and every answer SDL
-gives the game reports that, whatever the screen is really showing. The game
-draws at its own size, and the SDL layer carries the finished frame to the
-panel in one pass on the presentation core.
+The kernel now states the display size Cannonball is given: 796 by 448
+pixels, which is the game's widescreen picture at the doubled internal
+resolution it renders at. Every answer SDL returns to the game reports that
+size, whatever the screen attached to the board is actually showing.
+Cannonball draws at its own size and never learns the screen's.
 
-This is what a Pi 5 needs. That board's firmware settles its display mode
-before any kernel runs and cannot be moved off it, so a game that sizes
-itself from the screen is at the mercy of whatever monitor is plugged in.
-Now it is not: the same build fills a 1080p television and a 4K one
-identically, and the game's own copy of the frame is unscaled on every
-board.
+This matters most on a Pi 5. That board's firmware chooses its display mode
+before any kernel starts and will not change it afterwards, so a program
+that takes its size from the screen gets whatever monitor happens to be
+plugged in. Cannonball no longer does. Its own copy of the frame is now an
+exact one-to-one copy rather than a resize, and the single resize left in
+the chain is done by circle-libsdl2 on the processor core reserved for
+putting frames on screen.
+
+Confirmed on a Pi 5 driving a 1920x1080 screen. The Pi 3 and Pi 4 images
+build but have not yet been run with this change.
 
 `pi-cannonball` 2fdb8f9 · `circle-libsdl2` b2eca5c, 6741ffe, 1c83bcf
 
-### The picture costs half the work it used to
+### Drawing a frame takes about half the processor time
 
-The SDL layer's scaler had an optimisation that read finished rows back out
-of the screen buffer instead of building them again from the source. Reading
-the wide side back costs more than recomputing it from the narrow one, and
-it evicted the source from cache while it did so.
+The code in circle-libsdl2 that resizes the picture used to reuse a
+completed output row by copying it, rather than building it again from the
+source. An output row is much wider than the source row it comes from, so
+copying it reads far more memory than recalculating it does, and that
+reading pushes the source out of the processor's cache.
 
-Removing it halved what the presentation core spends putting a frame on a
-1080p screen. The frame rate was already at its ceiling, so this shows as
-headroom rather than speed — but it is headroom on the core that would pay
-for anything added to the picture later.
+With that removed, the core that puts frames on screen went from using 76%
+of its time to 41%, measured on a Pi 5 at 1920x1080 with the frame rate
+steady at 59.9 in both cases. The frame rate was already at its limit, so
+this does not appear as a faster game. It appears as free time on that core,
+which is what any future work on the picture would have to come out of.
 
 `circle-libsdl2` b16ac3e
 
-### Hi-res rendering and the repaired sound samples are on
+### A new card asks for hi-res rendering and the repaired sound samples
 
-A fresh card asks for the doubled internal resolution, which is what makes
-the game's frame land on the declared display without being resized, and for
-the repaired PCM sample ROM in place of the corrupt one the original arcade
-board shipped with. Supply a ROM set containing it and the samples play as
-they were meant to; the game finds it by checksum, so its filename does not
-matter.
+Hi-res doubles the resolution Cannonball renders at internally, which is
+what makes its picture match the display size the kernel declares, so no
+resizing happens inside the game. The repaired sample ROM replaces the
+faulty one the original arcade machine shipped with.
+
+Both need a ROM set that contains the repaired sample ROM. The game locates
+each ROM by checksum rather than by filename, so the file may be named
+anything. Without it, the ROM set fails to load and the game does not start.
 
 `pi-cannonball` 545d8a5
 
-### Building the card is one command
+### Building a card is one command
 
-`make card` stages the whole card into `build/sd-card/`, or writes straight
-to a mounted volume. It fetches the firmware at the revision the kernel is
-built against and checks every file against a hash, so the same repository
-state always produces the same card. The README described copying files by
-hand and named neither.
+`make card` assembles a complete card into `build/sd-card/` to copy onto
+FAT32 media, or writes directly to a mounted card. It downloads the
+Raspberry Pi firmware at the revision the kernel is built against and checks
+every file against a recorded hash, so the same repository state always
+produces the same card. The README previously described copying the files by
+hand and did not mention the command.
+
+The ROM set is still yours to supply; `roms/` is created empty.
 
 `pi-cannonball` 9a0e036, ef7da49
 
