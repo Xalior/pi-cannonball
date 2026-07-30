@@ -26,6 +26,7 @@
 #include <circle/startup.h>
 #include <circle/machineinfo.h>
 #include <SDL2/SDL_circle.h>
+#include <SDL2/SDL_error.h>
 #include <atomic>
 
 // Cannonball's entry point. It is main() in the fork's own source; the build
@@ -213,14 +214,39 @@ TShutdownMode CKernel::Run(void)
 
     // Geometry evidence belongs on serial: what boot config handed us, read
     // next to the shim's framebuffer-grant line when the window is created.
-    // The card asks for no size, so this prints 0x0 and the shim takes its
-    // canvas from whatever the firmware is already scanning out. A width= and
-    // height= in cmdline.txt would change that on a Pi 3 or a Pi 4, which do
-    // honor a mailbox mode request; on a Pi 5 it changes nothing, because no
-    // request of any kind moves that board off the mode its firmware settled
-    // on before our kernel ran.
+    // This is the PHYSICAL request only — the mode asked of the firmware. The
+    // card asks for no size, so this prints 0x0 and the panel keeps its own
+    // mode. A width= and height= in cmdline.txt would change that on a Pi 3 or
+    // a Pi 4, which do honor a mailbox mode request; on a Pi 5 it changes
+    // nothing, because no request of any kind moves that board off the mode
+    // its firmware settled on before our kernel ran. It never sets what the
+    // game is given — that is the declaration below.
     m_Logger.Write(From, LogNotice, "boot config geometry: %ux%u",
                    m_Options.GetWidth(), m_Options.GetHeight());
+
+    // The VIRTUAL display the game is given, declared before anything asks the
+    // library about the display. Every SDL answer Cannonball gets — the
+    // current mode, the window, the renderer's output size — is this, whatever
+    // the panel is really scanning, and the library carries each frame from
+    // here to there in one pass on the presentation core.
+    //
+    // 796x448 is OutRun's widescreen raster at the doubled internal resolution
+    // the game renders when hires is on, so Cannonball's own SDL_RenderCopy is
+    // 1:1 and the library's is the only scale in the chain. It is a constant
+    // because it is a fact about the program, not a setting.
+    //
+    // The library has no default and no fallback: without this it refuses to
+    // start.
+    static const int VIRTUAL_WIDTH  = 796;
+    static const int VIRTUAL_HEIGHT = 448;
+    if (SDL2Circle_DeclareVirtualDevice(32, VIRTUAL_WIDTH, VIRTUAL_HEIGHT) != 0)
+    {
+        m_Logger.Write(From, LogError, "virtual display %dx%d refused: %s",
+                       VIRTUAL_WIDTH, VIRTUAL_HEIGHT, SDL_GetError());
+        return ShutdownHalt;
+    }
+    m_Logger.Write(From, LogNotice, "virtual display declared: %dx%d at 32bpp",
+                   VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
     // Render throughput lives and dies by the ARM and core clocks. The shim
     // owns the class that manages them, so the readings come from the shim;
