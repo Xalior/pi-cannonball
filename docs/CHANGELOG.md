@@ -25,8 +25,9 @@ exact one-to-one copy rather than a resize, and the single resize left in
 the chain is done by circle-libsdl2 on the processor core reserved for
 putting frames on screen.
 
-Confirmed on a Pi 5 driving a 1920x1080 screen. The Pi 3 and Pi 4 images
-build but have not yet been run with this change.
+Confirmed on all three boards. On a Pi 5 driving a 1920x1080 screen, and on
+a Pi 3 and a Pi 4 across several different displays, each filling the screen
+with no display mode named in the boot configuration.
 
 `pi-cannonball` 2fdb8f9 · `circle-libsdl2` b2eca5c, 6741ffe, 1c83bcf
 
@@ -53,9 +54,11 @@ what makes its picture match the display size the kernel declares, so no
 resizing happens inside the game. The repaired sample ROM replaces the
 faulty one the original arcade machine shipped with.
 
-Both need a ROM set that contains the repaired sample ROM. The game locates
+This needs a ROM set that contains the repaired sample ROM. The game locates
 each ROM by checksum rather than by filename, so the file may be named
 anything. Without it, the ROM set fails to load and the game does not start.
+
+Confirmed running from a card built this way on a Pi 3 and a Pi 4.
 
 `pi-cannonball` 545d8a5
 
