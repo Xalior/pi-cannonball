@@ -142,8 +142,7 @@ CKernel::CKernel(void)
       m_Timer(&m_Interrupt),
       m_Logger(m_Options.GetLogLevel(), &m_Timer),
       m_EMMC(&m_Interrupt, &m_Timer, &m_ActLED),
-      m_Console(&m_Serial, &m_Serial),   // stdio over the UART
-      m_CPUThrottle(CPUSpeedMaximum)
+      m_Console(&m_Serial, &m_Serial)     // stdio over the UART
 {
     m_ActLED.Blink(3);
 }
@@ -220,13 +219,17 @@ TShutdownMode CKernel::Run(void)
     m_Logger.Write(From, LogNotice, "boot config geometry: %ux%u",
                    m_Options.GetWidth(), m_Options.GetHeight());
 
-    // Render throughput lives and dies by the ARM and core clocks, and
-    // CCPUThrottle clamps them to idle above the socmaxtemp limit set in
-    // the card's cmdline.txt (Circle's default is 60C).
+    // Render throughput lives and dies by the ARM and core clocks. The shim
+    // owns the class that manages them, so the readings come from the shim;
+    // this kernel never makes a CCPUThrottle of its own, because Circle
+    // allows exactly one and a second stops the board. Above the socmaxtemp
+    // limit in the card's cmdline.txt the clock is pulled back to idle — or,
+    // where that file also names a fan pin with gpiofanpin=, the fan is
+    // switched on instead and the clock is left alone.
     m_Logger.Write(From, LogNotice,
                    "SoC: %uC, arm %u MHz, core %u MHz, socmaxtemp %uC",
-                   m_CPUThrottle.GetTemperature(),
-                   m_CPUThrottle.GetClockRate() / 1000000,
+                   SDL2Circle_SoCTemperature(),
+                   SDL2Circle_CPUClockRate() / 1000000,
                    CMachineInfo::Get()->GetClockRate(CLOCK_ID_CORE) / 1000000,
                    CKernelOptions::Get()->GetSoCMaxTemp());
 

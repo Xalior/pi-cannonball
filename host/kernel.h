@@ -5,7 +5,8 @@
 // console carrying stdio, the SD card (FatFs, holding the ROM set, the
 // resource files and config.xml) and the cooperative scheduler. Video, USB
 // input and audio belong to circle-libsdl2 and are created inside SDL_Init
-// when Cannonball calls it.
+// when Cannonball calls it. So do the CPU clock and the case fan, which the
+// shim manages for its host; this kernel only says when they come up.
 //
 // Core roles, and the reason there are three of them:
 //
@@ -39,12 +40,12 @@
 #include <circle/logger.h>
 #include <circle/sched/scheduler.h>
 #include <circle/input/console.h>
-#include <circle/cputhrottle.h>
 #include <circle/multicore.h>
 #include <circle/memory.h>
 #include <circle/types.h>
 #include <SDCard/emmc.h>
 #include <fatfs/ff.h>
+#include <SDL2/SDL_circle.h>
 
 enum TShutdownMode
 {
@@ -85,7 +86,12 @@ private:
     CEMMCDevice         m_EMMC;
     FATFS               m_FileSystem;
     CConsole            m_Console;
-    CCPUThrottle        m_CPUThrottle;   // full clock: Circle boots at idle speed
+    // The shim's board hardware — the CPU clock and, where cmdline.txt names
+    // a fan pin, the case fan. Declared here rather than left to SDL_Init so
+    // the clock is already at maximum while this kernel builds its world: the
+    // SD card, the filesystem and the console all come up before the game
+    // does, and they come up at the speed the game will run at.
+    CSDL2CircleHardware m_SDL2Hardware;
     CSplitCores         m_Cores;
 
     // Declared last so the cores are the last thing started and the first

@@ -69,6 +69,21 @@ Format an SD card as FAT32 and copy onto it:
 ROM set, which is copyrighted; the build checks what you supply against the
 CRCs the game itself expects.
 
+### The fan pin in `cmdline.txt`
+
+One card boots any of the three boards, so all three read the same
+`cmdline.txt`. It carries `gpiofanpin=45`, which is the pin a Raspberry Pi 5
+Case Fan or Active Cooler is wired to. Naming a fan pin changes what happens
+when the board gets hot: the fan is switched on and the processor is left at
+full speed, instead of the processor being slowed down to cool itself. That
+is what a game wants — a slowed processor drops frames.
+
+`socmaxtemp=70` is the temperature in degrees Celsius at which that happens.
+
+On a Pi 3 or a Pi 4 the pin number depends on how you wired your own fan, so
+change `gpiofanpin=` to match it. With no fan fitted at all, remove the option
+and the board cools itself by slowing down.
+
 ## What works
 
 Fullscreen software rendering at 60fps, HDMI audio, and USB keyboards, on all
