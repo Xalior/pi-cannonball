@@ -24,9 +24,9 @@ Three processor cores are given separate work:
 - **Core 0** owns the hardware. Circle's world lives here — interrupts, USB,
   the SD card, sound — and no other core touches a device.
 - **Core 1** runs the game and nothing else.
-- **Core 2** puts finished frames on the screen: the game's own 398x224 picture
-  arrives as pixels and is scaled once, at the end, to whatever the display is
-  showing.
+- **Core 2** puts finished frames on the screen. The game draws at its own
+  resolution and never learns the display's; the picture is scaled once, at
+  the end, onto whatever the screen is really showing.
 
 ## Building
 
@@ -56,18 +56,25 @@ The images land in `host/build/<board>/`:
 
 ## Putting it on a card
 
-Format an SD card as FAT32 and copy onto it:
+```sh
+make card
+```
 
-- The Raspberry Pi firmware files (`bootcode.bin`, `start*.elf`, `fixup*.dat`
-  and the device trees) from the
-  [firmware repository](https://github.com/raspberrypi/firmware).
-- The kernel images above, keeping their names, so one card boots any board.
-- `host/config.txt` and `host/cmdline.txt`.
-- Cannonball's `config.xml`, its `roms/` directory and its `res/` files.
+That builds the card into `build/sd-card/` for you to copy onto FAT32 media.
+It fetches the Raspberry Pi firmware at the revision Circle is built against
+and checks every file against a hash, stages the three kernel images under the
+names each board's firmware looks for, and writes the boot configuration and
+the game's `config.xml` and `res/` files. Given a mounted FAT32 volume instead,
+`tools/mkcard /Volumes/YOUR-CARD` writes straight to it.
 
-**The ROMs are not here and cannot be.** Cannonball needs the original arcade
-ROM set, which is copyrighted; the build checks what you supply against the
-CRCs the game itself expects.
+The same repository state always produces the same card, and the script ends
+by reading back what actually landed rather than trusting that the copies
+worked.
+
+**The ROMs are not there and cannot be.** Cannonball needs the original arcade
+ROM set, which is copyrighted and is not this project's to distribute, so
+`roms/` is created empty. Supply them and the card boots: the game identifies
+each ROM by checksum as it starts, so a renamed set still loads.
 
 ### The fan pin in `cmdline.txt`
 
