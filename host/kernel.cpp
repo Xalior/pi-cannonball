@@ -283,7 +283,7 @@ TShutdownMode CKernel::Run(void)
                        "serial key injection armed (--rapi-debug-uart)");
     }
 
-    // Performance receipts — one serial line every N seconds, frame rate
+    // Performance reports — one serial line every N seconds, frame rate
     // then the cycle split — come from the library. Nothing to wire here:
     // the defaults block's `--rapi-perf=N` was consumed above, which is
     // where SDL2Circle_SetPerfInterval gets called (see defaults.cpp), so

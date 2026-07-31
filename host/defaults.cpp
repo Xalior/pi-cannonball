@@ -90,7 +90,7 @@ static void DispatchKernelSwitch(const char *pSwitch)
     }
     else if (strncmp(pSwitch, "--rapi-perf=", 12) == 0)
     {
-        // Seconds between performance receipts. Nothing but digits is an
+        // Seconds between performance reports. Nothing but digits is an
         // answer: anything else falls through to the unrecognised branch
         // rather than arming an interval nobody asked for.
         const char *pValue = pSwitch + 12;
@@ -110,7 +110,7 @@ static void DispatchKernelSwitch(const char *pSwitch)
         {
             SDL2Circle_SetPerfInterval(nSeconds);
             SDL2Circle_Log(From, SDL2CIRCLE_LOG_NOTICE,
-                           "--rapi-perf consumed: performance receipts every %u s",
+                           "--rapi-perf consumed: performance reports every %u s",
                            nSeconds);
         }
         else
