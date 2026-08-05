@@ -79,8 +79,16 @@ $(BOARDS): check-toolchain
 
 # All three at once. Each sub-make owns a different world and a different
 # output directory, so there is nothing for them to collide on.
+#
+# Each board is waited for BY PID, and its status kept. A bare `wait` reports
+# only that the shell has no children left — it is success whatever the jobs
+# did — so a board that failed to build left this target reporting success,
+# and the truth-gate then passed the board's PREVIOUS image, still on disk.
 kernels: check-toolchain
-	@for b in $(BOARDS); do $(MAKE) -C host RAPI_BOARD=$$b & done; wait
+	@pids=; fail=0; \
+	for b in $(BOARDS); do $(MAKE) -C host RAPI_BOARD=$$b & pids="$$pids $$!"; done; \
+	for p in $$pids; do wait $$p || fail=1; done; \
+	exit $$fail
 
 # Truth-gate: ask the filesystem, not the exit codes. An image that is
 # missing or empty fails here even if the build claimed success.
