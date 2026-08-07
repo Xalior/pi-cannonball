@@ -35,7 +35,13 @@ BOARDS      = rpi3 rpi4 rpi5
 RAPI_BOARD ?= rpi5
 
 ROOT       = ..
-SHIM       = $(ROOT)/circle-libsdl2
+# WHERE THE SHIM COMES FROM.
+#
+# Unset, this repository's own pinned copy — what a clone of this repository
+# gets, and what CI builds. A parent proving one shim across several games
+# points SHIM at the single checkout it is proving, so the library is built
+# once rather than once per game.
+SHIM       ?= $(ROOT)/circle-libsdl2
 CANNONBALL = $(ROOT)/cannonball/src/main
 BOOST      = $(ROOT)/boost
 
