@@ -19,14 +19,8 @@ The game's own source is not copied or modified here. It is a submodule,
 pinned at an upstream commit, and the build reads it without ever writing to
 it.
 
-Three processor cores are given separate work:
-
-- **Core 0** owns the hardware. Circle's world lives here — interrupts, USB,
-  the SD card, sound — and no other core touches a device.
-- **Core 1** runs the game and nothing else.
-- **Core 2** puts finished frames on the screen. The game draws at its own
-  resolution and never learns the display's; the picture is scaled once, at
-  the end, onto whatever the screen is really showing.
+The game draws at its own resolution and the picture is scaled once onto
+whatever your screen actually is.
 
 ## Building
 
